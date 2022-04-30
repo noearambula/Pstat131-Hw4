@@ -1,0 +1,73 @@
+---
+title: "Pstat 131 Hw 4"
+author: "Noe Arambula"
+date: '2022-04-28'
+---
+output:
+  pdf_document:
+    toc: true
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: show
+---
+
+# Loading Libraries
+
+```{r message=FALSE, warning=FALSE}
+library(discrim)
+library(ggplot2)
+library(tidyverse)
+library(tidymodels)
+library(corrplot)
+library(ggthemes)
+tidymodels_prefer()
+library(readr)
+library(corrr)
+library(klaR)
+library(MASS)
+```
+
+# Read in CSV Data File and Set Seed
+
+```{r}
+titanic <- read_csv("titanic.csv")
+
+set.seed(777)
+```
+
+# Changing Survived and pclass to Factors
+
+```{r}
+titanic$survived =  factor(titanic$survived, levels = c("Yes", "No")) 
+# Note can use parse_factor() in order to give a warning when there is a value not in the set
+
+titanic$pclass =  factor(titanic$pclass)
+
+class(titanic$survived)
+class(titanic$pclass)
+
+titanic
+```
+
+# Q.1 Splitting Data Create A Recipe Like in HW 3
+
+```{r}
+titanic_split <- titanic %>% 
+  initial_split(strata = survived, prop = 0.7)
+
+titanic_train <- training(titanic_split)
+titanic_test <- testing(titanic_split)
+
+dim(titanic_train)
+dim(titanic_test)
+```
+
+Each dataset has approximately the right number of observations; 623 is almost exactly 70% of the full data set, which contains 891 observations.
+
+```{r}
+titanic_recipe <- recipe(survived ~ pclass + sex + age + sib_sp + parch + fare, data = titanic_train) %>% 
+  step_impute_linear(age, impute_with = imp_vars(sib_sp)) %>%
+  step_dummy(all_nominal_predictors()) %>% 
+  step_interact(~ starts_with("sex"):age + age:fare)
+```
