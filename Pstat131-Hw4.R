@@ -18,8 +18,7 @@ class(titanic$pclass)
 titanic
 
 # Q1 SPLIT
-titanic_split <- titanic %>% 
-  initial_split(strata = survived, prop = 0.8)
+titanic_split <- initial_split(titanic, strata = survived, prop = 0.8)
 
 titanic_train <- training(titanic_split)
 titanic_test <- testing(titanic_split)
@@ -34,7 +33,7 @@ titanic_recipe <- recipe(survived ~ pclass + sex + age + sib_sp + parch + fare, 
 # Creating tuned recipe for use later in workflows
 
 titanic_tuned_rec <- titanic_recipe %>%
-  step_poly(pclass, sex, age, sib_sp, parch, fare, degree = tune())  # polynomial regression
+  step_poly(pclass, sex,age , sib_sp, parch, fare, degree = tune())  # polynomial regression
 
 # rsample object of the cross-validation resamples
 
@@ -47,8 +46,8 @@ degree_grid
 
 # Q4
 
-    #LOG 
-# We will use the recipe created in Question 2 to create workflows
+  # Logistic regression
+  # We will use the recipe created in Question 2 to create workflows
 
 # Logistic regression
 log_reg <- logistic_reg() %>% 
@@ -56,8 +55,8 @@ log_reg <- logistic_reg() %>%
   set_mode("classification")
 
 titanic_tuned_log_wf <- workflow() %>%  # log workflow
-  add_model(log_reg) %>%
-  add_recipe(titanic_tuned_rec)
+  add_recipe(titanic_tuned_rec) %>%
+  add_model(log_reg)
 
    # LDA
 # Linear discriminant analysis
@@ -66,8 +65,8 @@ lda_mod <- discrim_linear() %>%
   set_engine("MASS")
 
 titanic_tuned_lda_wf <- workflow() %>%  # lda workflow
-  add_model(lda_mod) %>%
-  add_recipe(titanic_tuned_rec)
+  add_recipe(titanic_tuned_rec) %>%
+  add_model(lda_mod)
 
    # QDA
 # Quadratic discriminant analysis

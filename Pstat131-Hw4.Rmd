@@ -2,6 +2,13 @@
 title: "Pstat 131 Hw 4"
 author: "Noe Arambula"
 date: '2022-04-28'
+output:
+  pdf_document:
+    toc: true
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: show
 ---
 
 output: pdf_document: toc: true html_document: toc: true toc_float: true code_folding: show ---
@@ -54,6 +61,7 @@ dim(titanic_test)
 Each data set has approximately the right number of observations, the training data has 712 obs. which is about 80% of the full data set, which contains 891 observations.
 
 ```{r}
+# Titanic recipe like in HW 3
 titanic_recipe <- recipe(survived ~ pclass + sex + age + sib_sp + parch + fare, data = titanic_train) %>% 
   step_impute_linear(age, impute_with = imp_vars(sib_sp)) %>%
   step_dummy(all_nominal_predictors()) %>% 
@@ -108,7 +116,7 @@ A quadratic discriminant analysis with the MASS engine.
 
 How many models, total, across all folds, will you be fitting to the data? To answer, think about how many folds there are, and how many models you'll fit to each fold.
 
-**Answer:** I will be fitting 30 models across all folds to the data since there are 10 folds and 3 models so 3x10 = 30
+**Answer:** I will be fitting 300 models across all folds to the data since there are we are fitting 10 variations/parameters/polynomial models of each engine to 10 folds and we have 3 engines so 10x10x3 = 300
 
 # Logistic Regression Workflow
 
@@ -121,8 +129,8 @@ log_reg <- logistic_reg() %>%
   set_mode("classification")
 
 titanic_tuned_log_wf <- workflow() %>%  # log workflow
-  add_model(log_reg) %>%
-  add_recipe(titanic_tuned_rec)
+  add_recipe(titanic_tuned_rec) %>%
+  add_model(log_reg)
 
 ```
 
