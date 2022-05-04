@@ -3,12 +3,12 @@ title: "Pstat 131 Hw 4"
 author: "Noe Arambula"
 date: '2022-04-28'
 output:
-  pdf_document:
-    toc: true
   html_document:
     toc: true
     toc_float: true
     code_folding: show
+  pdf_document:
+    toc: true
 ---
 
 output: pdf_document: toc: true html_document: toc: true toc_float: true code_folding: show ---
@@ -140,7 +140,7 @@ How many models, total, across all folds, will you be fitting to the data? To an
 
 **Answer:** I will be fitting 300 models across all folds to the data since there are we are fitting 3 models to 10 folds each, so we have 3 engines so 10x3 = 30
 
-# Logistic Regression Workflow
+## Logistic Regression Workflow
 
 ```{r}
 # We will use the recipe created in Question 2 to create workflows
@@ -196,7 +196,7 @@ fit_log <- tune_grid(
   grid = degree_grid,
   control = control_resamples(verbose = TRUE))
 
-# tune_grid fits model within each fold for each value in degree grid
+# fit_resamples fits computes performance metrics across our specified resamples
 # the control option prints out progress which helps with models that take a long time to fit
 
 ```
@@ -208,10 +208,6 @@ fit_lda <- fit_resamples(
   titanic_folds,
   control = control_resamples(verbose = TRUE))
 
-# tune_grid fits model within each fold for each value in degree grid
-# the control option prints out progress which helps with models that take a long time to fit
-
-
 ```
 
 ```{r eval=FALSE}
@@ -221,8 +217,7 @@ fit_qda <- fit_resamples(
   titanic_folds,
   control = control_resamples(verbose = TRUE))
 
-# tune_grid fits model within each fold for each value in degree grid
-# the control option prints out progress which helps with models that take a long time to fit
+
 save(fit_log, fit_lda, fit_qda, file = "fittedmodels.rda")
 ```
 
