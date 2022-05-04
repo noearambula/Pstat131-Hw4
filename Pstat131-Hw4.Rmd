@@ -20,6 +20,8 @@ library(tidymodels)
 library(ISLR)
 library(ISLR2)
 library(tidyverse)
+library(discrim)
+
 tidymodels_prefer()
 ```
 
@@ -67,6 +69,7 @@ titanic_recipe <- recipe(survived ~ pclass + sex + age + sib_sp + parch + fare, 
   step_dummy(all_nominal_predictors()) %>% 
   step_interact(~ starts_with("sex"):age + age:fare)
 
+
 ```
 
 # Question 2
@@ -74,11 +77,20 @@ titanic_recipe <- recipe(survived ~ pclass + sex + age + sib_sp + parch + fare, 
 Fold the **training** data. Use *k*-fold cross-validation, with k=10.
 
 ```{r}
-# Creating tuned recipe for use later in workflows
+# Creating tuned recipe
 
 titanic_tuned_rec <- titanic_recipe %>%
   step_poly(pclass, sex, age, sib_sp, parch, fare, degree = tune())  # polynomial regression
 
+
+#linear regression model
+lm_spec <- linear_reg() %>%
+  set_mode("regression") %>%
+  set_engine("lm")
+
+titanic_tuned_wf <- workflow() %>%
+  add_recipe(titanic_tuned_rec) %>%
+  add_model(lm_spec)
 ```
 
 ```{r}
@@ -94,11 +106,21 @@ degree_grid <- grid_regular(degree(range = c(1, 10)), levels = 10)
 degree_grid 
 ```
 
+```{r message=FALSE, warning=FALSE}
+# Do k-fold cross validation; tune_grid() fits the models within each fold for each value specified in degree_grid
+
+tune_res <- tune_grid(
+  object = titanic_tuned_wf, 
+  resamples = titanic_folds, 
+  grid = degree_grid
+)
+```
+
 # Question 3
 
 In your own words, explain what we are doing in Question 2. What is *k*-fold cross-validation? Why should we use it, rather than simply fitting and testing models on the entire training set? If we **did** use the entire training set, what re-sampling method would that be?
 
-**Answer:** K-fold cross-validation is a re-sampling method in order to help evaluate machine learning models by splitting the data into further smaller samples/subsets that we can perform analysis on separately in order to test our models on various amounts of subsets of the data. So , in order to do this we need to create a workflow object with one parameter set for tuning, in part 2 this was the first step I created the recipe but the full workflow will be created in question 4. Next we need to actually split the data into the folds/multiple smaller training sets which we did using vfold_cv. Lastly, we had to create a tibble with all the values we want to test, so in this case the polynomial degrees we wanted to test.
+**Answer:** K-fold cross-validation is a re-sampling method in order to help evaluate machine learning models by splitting the data into further smaller samples/subsets that we can perform analysis on separately in order to test our models on various amounts of subsets of the data. So , in order to do this we need to create a workflow object with one parameter set for tuning, in part 2 this was the first step I created the recipe and workflow. Next we need to actually split the data into the folds/multiple smaller training sets which we did using vfold_cv. Lastly, we had to create a tibble with all the values we want to test, so in this case the polynomial degrees we wanted to test.
 
 We should use k-fold cross-validation because it is useful when we smaller amount of observations since we have multiple subsets we can test on. It helps reduce selection bias as we test on many subsets with different observations. It is also useful because it helps us see how our model would perform on new data like the testing set before having to use the actual testing set thus we can see trends such as bias, variance, over fitting, etc and we can try and correct it before using it on the actual testing set. It allows us to fit multiple models on multiple subsets to see how they do.
 
@@ -116,7 +138,7 @@ A quadratic discriminant analysis with the MASS engine.
 
 How many models, total, across all folds, will you be fitting to the data? To answer, think about how many folds there are, and how many models you'll fit to each fold.
 
-**Answer:** I will be fitting 300 models across all folds to the data since there are we are fitting 10 variations/parameters/polynomial models of each engine to 10 folds and we have 3 engines so 10x10x3 = 300
+**Answer:** I will be fitting 300 models across all folds to the data since there are we are fitting 3 models to 10 folds each, so we have 3 engines so 10x3 = 30
 
 # Logistic Regression Workflow
 
@@ -128,8 +150,8 @@ log_reg <- logistic_reg() %>%
   set_engine("glm") %>% 
   set_mode("classification")
 
-titanic_tuned_log_wf <- workflow() %>%  # log workflow
-  add_recipe(titanic_tuned_rec) %>%
+titanic_log_wf <- workflow() %>%  # log workflow
+  add_recipe(titanic_recipe) %>%
   add_model(log_reg)
 
 ```
@@ -142,9 +164,9 @@ lda_mod <- discrim_linear() %>%
   set_mode("classification") %>% 
   set_engine("MASS")
 
-titanic_tuned_lda_wf <- workflow() %>%  # lda workflow
+titanic_lda_wf <- workflow() %>%  # lda workflow
   add_model(lda_mod) %>%
-  add_recipe(titanic_tuned_rec)
+  add_recipe(titanic_recipe)
 ```
 
 ## QDA Workflow
@@ -155,9 +177,9 @@ qda_mod <- discrim_quad() %>%
   set_mode("classification") %>% 
   set_engine("MASS")
 
-titanic_tuned_qda_wf <- workflow() %>%  # qda workflow
+titanic_qda_wf <- workflow() %>%  # qda workflow
   add_model(qda_mod) %>% 
-  add_recipe(titanic_tuned_rec)
+  add_recipe(titanic_recipe)
 ```
 
 # Question 5
@@ -168,11 +190,11 @@ IMPORTANT: Some models may take a while to run -- anywhere from 3 to 10 minutes.
 
 ```{r eval=FALSE}
 # logistic regression fit
-tune_log <- tune_grid(  
-  object = titanic_tuned_log_wf, 
+fit_log <- tune_grid(  
+  object = titanic_log_wf, 
   resamples = titanic_folds, 
   grid = degree_grid,
-  control = control_grid(verbose = TRUE))
+  control = control_resamples(verbose = TRUE))
 
 # tune_grid fits model within each fold for each value in degree grid
 # the control option prints out progress which helps with models that take a long time to fit
@@ -181,11 +203,10 @@ tune_log <- tune_grid(
 
 ```{r eval=FALSE}
 # linear discriminant analysis fit
-tune_lda <- tune_grid(  
-  object = titanic_tuned_lda_wf, 
-  resamples = titanic_folds, 
-  grid = degree_grid,
-  control = control_grid(verbose = TRUE))
+fit_lda <- fit_resamples(  
+  titanic_lda_wf,
+  titanic_folds,
+  control = control_resamples(verbose = TRUE))
 
 # tune_grid fits model within each fold for each value in degree grid
 # the control option prints out progress which helps with models that take a long time to fit
@@ -195,18 +216,17 @@ tune_lda <- tune_grid(
 
 ```{r eval=FALSE}
 # Quadratic discriminant analysis fit
-tune_qda <- tune_grid(  
-  object = titanic_tuned_qda_wf, 
-  resamples = titanic_folds, 
-  grid = degree_grid,
-  control = control_grid(verbose = TRUE))
+fit_qda <- fit_resamples(  
+  titanic_qda_wf,
+  titanic_folds,
+  control = control_resamples(verbose = TRUE))
 
 # tune_grid fits model within each fold for each value in degree grid
 # the control option prints out progress which helps with models that take a long time to fit
-save(tune_log, tune_lda, tune_qda, file = "fittedmodels.rda")
+save(fit_log, fit_lda, fit_qda, file = "fittedmodels.rda")
 ```
 
-I saved all the fitted tuned models in an R script that I previously ran to save time and will now just load them in
+I saved all the fitted models in an R script that I previously ran to save time and will now just load them in
 
 ```{r}
 load(file = "fittedmodels.rda")
@@ -222,82 +242,41 @@ Decide which of the 3 fitted models has performed the best. Explain why. *(Note:
 
 ```{r}
 # Logistic regression 
-collect_metrics(tune_log)
-show_best(tune_log, metric = "rmse") # shows only the best performing models
-```
-
-```{r}
-autoplot(tune_log) # autopilot gives visual of performance of different hyperparameters
-```
-
-I will now choose which polynomial degree for this model is best
-
-```{r}
-select_by_one_std_err(tune_log, degree, metric = "rmse") # This selects the most simple model that is within one standard error of the numerically optimal results
+collect_metrics(fit_log)
 ```
 
 ## Linear Discriminant Analysis
 
 ```{r}
 # Linear discriminant analysis
-collect_metrics(tune_lda)
-show_best(tune_lda, metric = "rmse") # shows only the best performing models
-```
-
-```{r}
-autoplot(tune_lda) # autopilot gives visual of performance of different hyperparameters
-```
-
-I will now choose which polynomial degree is best for this model
-
-```{r}
-select_by_one_std_err(tune_lda, degree, metric = "rmse") # This selects the most simple model that is within one standard error of the numerically optimal results
+collect_metrics(fit_lda,summarize = F) 
+# note adding the summarize = F option allows us to see the estimate for each fold
+collect_metrics(fit_lda)
 ```
 
 ## Quadratic Discriminant Analysis
 
 ```{r}
 # Quadratic discriminant analysis
-collect_metrics(tune_qda)
-show_best(tune_qda, metric = "rmse") # shows only the best performing models
-```
-
-```{r}
-autoplot(tune_qda) # autopilot gives visual of performance of different hyperparameters
-```
-
-I will now choose which polynomial degree is best for the model
-
-```{r}
-select_by_one_std_err(tune_qda, degree, metric = "rmse") # This selects the most simple model that is within one standard error of the numerically optimal results
+collect_metrics(fit_qda)
 ```
 
 ## Best Model
 
-Now, after this analysis I have chosen \_\_\_\_\_ to be the final model. It performed the best because **...(mean and standard error bs)**. I will now assign the best polynomial degree from this model to an object in order to use it to specify the degree argument in titanic_tuned\_**INSERTMODELHERE_wf** and create the final workflow
+Now, after this analysis I have chosen the logistic regression model to be the final model. It performed the best because it had the lowest standard error out of all the models and highest mean for accuracy.
 
-```{r}
-final_wf <- finalize_workflow(titanic_tuned_lda_wf, best_degree)
-#
-# NOTEEEEEEEEEEE REMEMBER TO CHANGE THE WORKFLOW (titanic_tuned_lda_wf)
-# TO BEST WORKFLOW mdoel THAT WE CHOSE
-# NOT SURE IF THIS WILL WORK THO FINGERS CROSSED IF NOT LOOK AT LAB NOTES
-#
-final_wf
-```
+Second best model was qda
 
 # Question 7
 
 Now that you've chosen a model, fit your chosen model to the entire training dataset (not to the folds).
 
 ```{r}
-# Fitting ___ mdoel to entire training data set
-BESTMODELFITTT_fit <- fit(final_wf, titanic_train)
+# Fitting logistic model to entire training data set
+final_fit <- fit(titanic_log_wf, titanic_train)
 
-BESTMODELFITTT_fit
+final_fit
 ```
-
-change best model fit above
 
 # Question 8
 
@@ -306,11 +285,9 @@ Finally, with your fitted model, use `predict()`, `bind_cols()`, and `accuracy()
 Compare your model's testing accuracy to its average accuracy across folds. Describe what you see.
 
 ```{r}
-predict(BESTMODELFITTT_fit, new_data = titanic_test, type = "class") %>% 
+predict(final_fit, new_data = titanic_test, type = "class") %>% 
   bind_cols(titanic_test %>% select(survived)) %>% 
   accuracy(truth = survived, estimate = .pred_class)
 ```
 
-R**REMEMBER TO CHANGE BEST MODEL FIT NAME**
-
-**NEED EXPLAIN HERE**
+The model's testing accuracy was 0.8156425 while the average accuracy for the folds was 0.8061228 so it did a bit better on the testing set then on the folds

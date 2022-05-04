@@ -2,6 +2,7 @@ library(tidymodels)
 library(ISLR)
 library(ISLR2)
 library(tidyverse)
+library(discrim)
 tidymodels_prefer()
 titanic <- read_csv("titanic.csv")
 
@@ -12,10 +13,11 @@ titanic$survived =  factor(titanic$survived, levels = c("Yes", "No"))
 
 titanic$pclass =  factor(titanic$pclass)
 
+
 class(titanic$survived)
 class(titanic$pclass)
 
-titanic
+
 
 # Q1 SPLIT
 titanic_split <- initial_split(titanic, strata = survived, prop = 0.8)
@@ -29,11 +31,13 @@ titanic_recipe <- recipe(survived ~ pclass + sex + age + sib_sp + parch + fare, 
   step_dummy(all_nominal_predictors()) %>% 
   step_interact(~ starts_with("sex"):age + age:fare)
 
+  
+
 # Q2 
 # Creating tuned recipe for use later in workflows
 
 titanic_tuned_rec <- titanic_recipe %>%
-  step_poly(pclass, sex,age , sib_sp, parch, fare, degree = tune())  # polynomial regression
+  step_poly(pclass, sex,age , sib_sp, parch, fare, degree = tune()) # polynomial regression
 
 # rsample object of the cross-validation resamples
 
@@ -54,8 +58,8 @@ log_reg <- logistic_reg() %>%
   set_engine("glm") %>% 
   set_mode("classification")
 
-titanic_tuned_log_wf <- workflow() %>%  # log workflow
-  add_recipe(titanic_tuned_rec) %>%
+titanic_log_wf <- workflow() %>%  # log workflow
+  add_recipe(titanic_recipe) %>%
   add_model(log_reg)
 
    # LDA
@@ -64,8 +68,8 @@ lda_mod <- discrim_linear() %>%
   set_mode("classification") %>% 
   set_engine("MASS")
 
-titanic_tuned_lda_wf <- workflow() %>%  # lda workflow
-  add_recipe(titanic_tuned_rec) %>%
+titanic_lda_wf <- workflow() %>%  # lda workflow
+  add_recipe(titanic_recipe) %>%
   add_model(lda_mod)
 
    # QDA
@@ -74,47 +78,43 @@ qda_mod <- discrim_quad() %>%
   set_mode("classification") %>% 
   set_engine("MASS")
 
-titanic_tuned_qda_wf <- workflow() %>%  # qda workflow
+titanic_qda_wf <- workflow() %>%  # qda workflow
   add_model(qda_mod) %>% 
-  add_recipe(titanic_tuned_rec)
+  add_recipe(titanic_recipe)
 
 # Q5 FIT MODELS
 
    # LOG REG
-tune_log <- tune_grid(  
-  object = titanic_tuned_log_wf, 
-  resamples = titanic_folds, 
-  grid = degree_grid,
-  control = control_grid(verbose = TRUE))
+fit_log <- fit_resamples(  
+  titanic_log_wf,
+  titanic_folds,
+  control = control_resamples(verbose = TRUE))
 
-# tune_grid fits model within each fold for each value in degree grid
+
+# fit_resamples fits computes performance metrics across our specified resamples
 # the control option prints out progress which helps with models that take a long time to fit
 
 
   # LDA
-tune_lda <- tune_grid(  
-  object = titanic_tuned_lda_wf, 
-  resamples = titanic_folds, 
-  grid = degree_grid,
-  control = control_grid(verbose = TRUE))
+fit_lda <- fit_resamples(  
+  titanic_lda_wf,
+  titanic_folds,
+  control = control_resamples(verbose = TRUE))
 
-# tune_grid fits model within each fold for each value in degree grid
-# the control option prints out progress which helps with models that take a long time to fit
 
 
   # QDA
 
-tune_qda <- tune_grid(  
-  object = titanic_tuned_qda_wf, 
-  resamples = titanic_folds, 
-  grid = degree_grid,
-  control = control_grid(verbose = TRUE))
+fit_qda <- fit_resamples(  
+  titanic_qda_wf,
+  titanic_folds,
+  control = control_resamples(verbose = TRUE))
 
-# tune_grid fits model within each fold for each value in degree grid
-# the control option prints out progress which helps with models that take a long time to fit
+
 
 # SAVING ALL THE FITS
-save(tune_log, tune_lda, tune_qda,file = "fittedmodels.rda")
+save(fit_log,fit_lda, fit_qda,file = "fittedmodels.rda")
+rm(fit_lda,fit_log,fit_qda)
 load(file = "fittedmodels.rda")
 
-.notes
+
